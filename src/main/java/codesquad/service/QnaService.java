@@ -1,9 +1,12 @@
 package codesquad.service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Resource;
 
+import codesquad.domain.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
@@ -11,11 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import codesquad.CannotDeleteException;
-import codesquad.domain.Answer;
-import codesquad.domain.AnswerRepository;
-import codesquad.domain.Question;
-import codesquad.domain.QuestionRepository;
-import codesquad.domain.User;
 
 @Service("qnaService")
 public class QnaService {
@@ -47,7 +45,27 @@ public class QnaService {
 
     @Transactional
     public void deleteQuestion(User loginUser, long questionId) throws CannotDeleteException {
-        // TODO 삭제 기능 구현
+        Question question = questionRepository.getOne(questionId);
+        if (!question.isOwner(loginUser)) {
+            throw new CannotDeleteException("다른 사람의 글은 삭제할 수 없다.");
+        }
+
+        List<Answer> answers = question.getAnswers();
+        for (Answer answer : answers) {
+            if (!answer.isOwner(loginUser)) {
+                throw new CannotDeleteException("다른 사용자가 작성한 답변을 삭제할 수 없습니다.");
+            }
+        }
+
+        question.delete();
+
+        List<DeleteHistory> histories = new ArrayList<>();
+        histories.add(new DeleteHistory(ContentType.QUESTION, question.getId(), loginUser, LocalDateTime.now()));
+        for (Answer answer : answers) {
+            answer.delete();
+            histories.add(new DeleteHistory(ContentType.ANSWER, answer.getId(), loginUser, LocalDateTime.now()));
+        }
+        deleteHistoryService.saveAll(histories);
     }
 
     public Iterable<Question> findAll() {

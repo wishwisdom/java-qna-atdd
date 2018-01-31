@@ -70,6 +70,14 @@ public class Question extends AbstractEntity implements UrlGeneratable {
         answers.add(answer);
     }
 
+    public List<Answer> getAnswers() {
+        return answers;
+    }
+
+    public void delete() {
+        this.deleted = true;
+    }
+
     public boolean isOwner(User loginUser) {
         return writer.equals(loginUser);
     }

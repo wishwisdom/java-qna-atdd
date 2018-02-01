@@ -70,6 +70,12 @@ public class Question extends AbstractEntity implements UrlGeneratable {
         answers.add(answer);
     }
 
+    public Question update(QuestionDto questionDto) {
+        this.title = questionDto.getTitle();
+        this.contents = questionDto.getContents();
+        return this;
+    }
+
     public List<Answer> getAnswers() {
         return answers;
     }

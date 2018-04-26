@@ -2,6 +2,7 @@ package codesquad.domain;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
@@ -14,6 +15,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.OrderBy;
 import javax.validation.constraints.Size;
 
+import codesquad.CannotDeleteException;
 import codesquad.UnAuthorizedException;
 import org.hibernate.annotations.Where;
 
@@ -71,7 +73,7 @@ public class Question extends AbstractEntity implements UrlGeneratable {
         answers.add(answer);
     }
 
-    public boolean isOwner(User loginUser) {
+    private boolean isOwner(User loginUser) {
         return writer.equals(loginUser);
     }
 
@@ -79,17 +81,20 @@ public class Question extends AbstractEntity implements UrlGeneratable {
         return deleted;
     }
 
-    public void delete(){
+    public void delete(User loginUser) throws CannotDeleteException{
+        if (!isOwner(loginUser) || isDeleted()) {
+            throw new CannotDeleteException("권한이 없거나, 이미 삭제된 질문입니다.");
+        }
         this.deleted = true;
     }
 
-    public void update(User loginUser, String title, String contents){
-        if (!writer.getUserId().equals( loginUser.getUserId())) {
+    public void update(User loginUser,QuestionDto questionDto){
+        if (!isOwner( loginUser)) {
             throw new UnAuthorizedException();
         }
 
-        this.title = title;
-        this.contents= contents;
+        this.title = questionDto.getTitle();
+        this.contents = questionDto.getContents();
     }
 
     @Override
@@ -104,5 +109,22 @@ public class Question extends AbstractEntity implements UrlGeneratable {
     @Override
     public String toString() {
         return "Question [id=" + getId() + ", title=" + title + ", contents=" + contents + ", writer=" + writer + "]";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Question)) return false;
+        if (!super.equals(o)) return false;
+        Question question = (Question) o;
+        return deleted == question.deleted &&
+                Objects.equals(title, question.title) &&
+                Objects.equals(contents, question.contents) &&
+                Objects.equals(writer, question.writer);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), title, contents, writer, deleted);
     }
 }

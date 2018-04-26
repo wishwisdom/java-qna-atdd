@@ -1,6 +1,7 @@
 package codesquad.web;
 
 import codesquad.CannotDeleteException;
+import codesquad.domain.Question;
 import codesquad.domain.QuestionRepository;
 import codesquad.domain.User;
 import org.junit.Test;
@@ -16,8 +17,8 @@ import support.helper.HtmlFormDataBuilder;
 import support.test.AcceptanceTest;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 
 public class QuestionAcceptanceTest extends AcceptanceTest {
     private static final Logger log = LoggerFactory.getLogger(QuestionAcceptanceTest.class);
@@ -27,7 +28,7 @@ public class QuestionAcceptanceTest extends AcceptanceTest {
 
     @Test
     public void createForm() throws Exception {
-        ResponseEntity<String> response = template().getForEntity("/question/form", String.class);
+        ResponseEntity<String> response = template().getForEntity("/questions/form", String.class);
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
         log.debug("body : {}", response.getBody());
     }
@@ -37,16 +38,16 @@ public class QuestionAcceptanceTest extends AcceptanceTest {
         HtmlFormDataBuilder builder = HtmlFormDataBuilder.urlEncodedForm();
 
         HttpEntity<MultiValueMap<String, Object>> request = builder
-                    .addParameter("title","title")
-                    .addParameter("contents","contents")
+                .addParameter("title", "title")
+                .addParameter("contents", "contents")
                 .build();
 
         User loginUser = defaultUser();
         ResponseEntity<String> response = basicAuthTemplate(loginUser)
-                .postForEntity("/question", request, String.class);
+                .postForEntity("/questions", request, String.class);
 
         assertThat(response.getStatusCode(), is(HttpStatus.FOUND));
-        assertThat(response.getHeaders().getLocation().getPath(), is("/question"));
+        assertThat(response.getHeaders().getLocation().getPath(), is("/questions"));
     }
 
     @Test
@@ -54,51 +55,60 @@ public class QuestionAcceptanceTest extends AcceptanceTest {
         // ResponseEntity<String> response =template().getForEntity("/qna", String.class);
         User loginUser = defaultUser();
         ResponseEntity<String> response = basicAuthTemplate(loginUser)
-                .getForEntity("/question", String.class);
+                .getForEntity("/questions", String.class);
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
     }
 
     @Test
     public void updateForm_login() throws Exception {
-        ResponseEntity<String> response = template().getForEntity(String.format("/question/%d/form", 1),
+        ResponseEntity<String> response = template().getForEntity(String.format("/questions/%d/form", 1),
                 String.class);
         assertThat(response.getStatusCode(), is(HttpStatus.OK));
     }
 
     @Test
     public void update_no_login() throws Exception {
-        ResponseEntity<String> response = update(template());
-        assertThat(response.getStatusCode(), is(HttpStatus.FORBIDDEN));
+        template().put("/questions/1", getMultiValueMapHttpEntity());
+        Question target = questionRepository.findOne(1l);
+
+        assertNotEquals(target.getTitle(), "title2");
+        assertNotEquals(target.getContents(), "contents");
     }
 
     @Test
     public void update() throws Exception {
-        ResponseEntity<String> response = update(basicAuthTemplate());
-        assertThat(response.getStatusCode(), is(HttpStatus.FOUND));
-        assertTrue(response.getHeaders().getLocation().getPath().startsWith("/question"));
+        basicAuthTemplate().put("/questions/1", getMultiValueMapHttpEntity());
+        Question target = questionRepository.findOne(1l);
+
+        assertThat(target.getTitle(), is("title2"));
+        assertThat(target.getContents(), is("contents"));
     }
 
-    private ResponseEntity<String> update(TestRestTemplate template) throws Exception {
-        HtmlFormDataBuilder builder = HtmlFormDataBuilder.urlEncodedForm();
-
-        HttpEntity<MultiValueMap<String, Object>> request = builder
-                //.addParameter("id","1")
-                .addParameter("title","title2")
-                .addParameter("contents","contents")
+    private HttpEntity<MultiValueMap<String, Object>> getMultiValueMapHttpEntity() {
+        return HtmlFormDataBuilder.urlEncodedForm()
+                .addParameter("title", "title2")
+                .addParameter("contents", "contents")
                 .build();
+    }
 
-        return template.postForEntity("/question/1", request, String.class);
+    private HttpEntity<MultiValueMap<String, Object>> update(TestRestTemplate template) throws Exception {
+        return HtmlFormDataBuilder.urlEncodedForm()
+                .addParameter("title", "title2")
+                .addParameter("contents", "contents")
+                .build();
     }
 
     @Test
-    public void can_not_delete() throws CannotDeleteException{
-        ResponseEntity<String> response = basicAuthTemplate().getForEntity("/question/3/delete", String.class);
+    public void can_not_delete() throws CannotDeleteException {
+        ResponseEntity<String> response = basicAuthTemplate().getForEntity("/questions/3/delete", String.class);
         assertThat(response.getStatusCode(), is(HttpStatus.INTERNAL_SERVER_ERROR)); // CannotDeleteException을 잡아내지 못함.
     }
 
     @Test
     public void delete() {
-        ResponseEntity<String> response = basicAuthTemplate().getForEntity("/question/1/delete", String.class);
-        assertThat(response.getStatusCode(), is(HttpStatus.OK));
+        basicAuthTemplate().delete("/questions/1");
+        Question question = questionRepository.findOne(1l);
+
+        assertThat(question.isDeleted(), is(true));
     }
 }

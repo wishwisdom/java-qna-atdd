@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Controller
-@RequestMapping("/question")
+@RequestMapping("/questions")
 public class QnAController {
     private static final Logger log = LoggerFactory.getLogger(QnAController.class);
 
@@ -35,7 +35,7 @@ public class QnAController {
         Question question = new Question(questionDto.getTitle(),questionDto.getContents());
 
         qnaService.create(user, question);
-        return "redirect:/question";
+        return "redirect:/questions";
     }
 
     @GetMapping
@@ -52,18 +52,18 @@ public class QnAController {
         return "/qna/updateForm";
     }
 
-    @PostMapping("/{id}")
+    @PutMapping("/{id}")
     public String update(@LoginUser User loginUser, @PathVariable long id, QuestionDto target) {
         log.debug("question -- {}",target.getTitle());
         qnaService.update(loginUser,id,target);
-        return "redirect:/question";
+        return "redirect:/questions";
     }
 
-    @GetMapping("/{id}/delete")
+    @DeleteMapping("/{id}")
     public String delete(@LoginUser User loginUser,@PathVariable long id) throws CannotDeleteException {
         log.debug("delete {}", id);
         qnaService.deleteQuestion(loginUser, id);
-        return "redirect:/question";
+        return "redirect:/questions";
     }
 
 }

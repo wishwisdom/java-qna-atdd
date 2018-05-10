@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service("qnaService")
 public class QnaService {
@@ -46,14 +47,31 @@ public class QnaService {
     }
 
     @Transactional
-    public void deleteQuestion(User loginUser, long questionId) throws CannotDeleteException {
+    public int deleteQuestion(User loginUser, long questionId) throws CannotDeleteException {
         // TODO 삭제 기능 구현
         Question question = findById(questionId);
-        question.delete(loginUser);
 
-        DeleteHistory deleteHistory = new DeleteHistory(ContentType.QUESTION, questionId, loginUser, LocalDateTime.now());
-        deleteHistoryService.save(deleteHistory);
+        return question.delete(new DeleteBehavior() {
+            @Override
+            public User getLoginUser() {
+                return loginUser;
+            }
 
+            @Override
+            public int deleteQuestionAndAnswer(Question deletedQuestion, List<Answer> answers) {
+                List<DeleteHistory> deleteHistories = answers.stream()
+                        .filter( a -> a.isOwner(loginUser) && !a.isDeleted())
+                        .map( a -> {
+                            a.delete(loginUser);
+                            return  new DeleteHistory(ContentType.ANSWER, a.getId(), loginUser, LocalDateTime.now());
+                        }).collect(Collectors.toList());
+
+                deleteHistories.add(new DeleteHistory(ContentType.QUESTION, deletedQuestion.getId(), loginUser, LocalDateTime.now()));
+                deleteHistoryService.saveAll(deleteHistories);
+
+                return deleteHistories.size();
+            }
+        });
     }
 
     public Iterable<Question> findAll() {
